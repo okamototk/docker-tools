@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# Add or delete expose port for running docker.
+
+# docker-expose-port [-d] <container name> <expose poet:container port]>
+#
+# add expose port
+# # docker-expose-port mycont 8080:80
+#
+# delete expose port
+# # docker-expose-port -d mycont 8080:80
+
+ACTION=add
+
+if [ $1 = "-d" ] ;
+then
+  ACTION=remove
+  shift
+fi
+
+IP=`docker inspect $1 |grep IPAddress |awk '{print $2}' |sed  s/[\",]//g`
+
+# split port <SRCP>:<DESTP> 
+IFS=':'
+set -- $2
+SRCP=$1
+DESTP=$2
+IFS=''
+
+NAT_RULE="DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}"
+FILTER_RULE="DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT"
+
+case "${ACTION}" in
+
+  "add" )
+    if [ -z `iptables-save |grep  ${NAT_RULE}` ];
+    then
+      iptables -t nat -A DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
+    else
+      echo "error: Rule already exists in iptables."
+      exit 1
+    fi
+
+    if [ -z `iptables-save |grep  ${FILTER_RULE}` ];
+    then
+      iptables -t filter -A DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
+    else
+      echo "error: Rule already exists in iptables."
+      exit 1
+    fi
+  ;;
+  
+  "remove" )
+    if [ `iptables-save |grep  ${NAT_RULE}` ];
+    then
+      iptables -t nat -D DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
+    else 
+      echo "error: Rule does not exist in iptables."
+      exit 1
+    fi
+    if [ `iptables-save |grep  ${FILTER_RULE}` ];
+    then
+      iptables -t filter -D DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
+    else
+      echo "error: Rule does not exist in iptables."      
+      exit 1
+    fi
+  ;;
+  
+esac
+
+
+
+
+
