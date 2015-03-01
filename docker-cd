@@ -1,0 +1,10 @@
+#!/bin/bash
+
+ID=`docker inspect $1 |grep "Id" |awk '{print $2}'| sed -e  s/[\",]//g`
+
+cd /var/lib/docker/aufs/mnt/$ID
+bash
+
+
+
+
