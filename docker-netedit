@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+import json,sqlite3, sys
+
+if len(sys.argv) != 4:
+  print "usage: docker-netedit <container name> <container port> <host port to export>"
+  sys.exit(1)
+
+_docker_path = '/var/lib/docker'
+
+container_name = sys.argv[1]
+from_port = int(sys.argv[2])
+to_port = int(sys.argv[3])
+
+
+# get container id 
+con = sqlite3.connect('/var/lib/docker/linkgraph.db')
+c = con.cursor();
+c.execute("select entity_id from edge where name = '"+container_name+"'")
+
+fetch = c.fetchone() 
+
+if not fetch:
+  print "container '" + sys.argv[1] + "' is not found."
+  sys.exit(1)
+
+id = fetch[0]
+
+# make file path 
+
+config_file = _docker_path + "/containers/" + id + "/config.json"
+hostconfig_file = _docker_path + "/containers/" + id + "/hostconfig.json"
+
+# edit config.json 
+
+f = open(config_file, "r")
+
+config = json.load(f)
+config['Config']['ExposedPorts'] = {str(from_port)+"/tcp": {}, str(to_port)+"/tcp": {}}
+
+f.close()
+
+f= open(config_file, 'w')
+json.dump(config,f)
+f.close()
+
+# edit hostconfig.json 
+
+f = open(hostconfig_file, 'r')
+
+hostconfig = json.load(f)
+hostconfig['PortBindings'] = {str(from_port)+"/tcp" : [{"HostIp":"","HostPort": str(to_port)}]}
+
+f.close()
+
+f= open(hostconfig_file, 'w')
+json.dump(hostconfig,f)
+f.close()
