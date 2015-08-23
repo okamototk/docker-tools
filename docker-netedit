@@ -1,12 +1,19 @@
 #!/usr/bin/python
 
-import json,sqlite3, sys
+import json,sqlite3,sys,os
+
+_docker_path = '/var/lib/docker'
+_docker_pidfile = '/var/run/docker.pid'
 
 if len(sys.argv) != 4:
   print "usage: docker-netedit <container name> <container port> <host port to export>"
-  sys.exit(1)
 
-_docker_path = '/var/lib/docker'
+if os.path.isfile(_docker_pidfile) == True:
+  print "Stop docker service to use this command!"
+  sys.exit(1)
+   
+
+
 
 container_name = sys.argv[1]
 from_port = int(sys.argv[2])
