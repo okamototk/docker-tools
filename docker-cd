@@ -1,8 +1,18 @@
 #!/bin/bash
 
 ID=`docker inspect $1 |grep "Id" |awk '{print $2}'| sed -e  s/[\",]//g`
+DRIVER=`docker inspect $ID |grep  "Driver" |head -1 | awk '{print $2}' | sed 's/"//g' |sed 's/,//'`
 
-cd /var/lib/docker/aufs/mnt/$ID
+if [ ${DRIVER} == "overlay" ];
+then
+  cd /var/lib/docker/overlay/$ID/merged
+elif [ ${DRIVER} == "aufs" ];
+then
+  cd /var/lib/docker/aufs/mnt/$ID
+else
+  echo "Storage Driver '" ${DRIVER} "' is not supported."
+fi
+
 bash
 
 
