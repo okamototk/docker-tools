@@ -18,7 +18,9 @@ then
   shift
 fi
 
-IP=`docker inspect $1 |grep IPAddress |awk '{print $2}' |sed  s/[\",]//g`
+IP=`docker inspect $1 |grep \"IPAddress\" |awk '{print $2}' |sed  s/[\",]//g`
+
+echo "container ip: " $IP
 
 # split port <SRCP>:<DESTP> 
 IFS=':'
@@ -35,6 +37,7 @@ case "${ACTION}" in
   "add" )
     if [ -z `iptables-save |grep  ${NAT_RULE}` ];
     then
+      echo iptables -t nat -A DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
       iptables -t nat -A DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
     else
       echo "error: Rule already exists in iptables."
@@ -43,6 +46,7 @@ case "${ACTION}" in
 
     if [ -z `iptables-save |grep  ${FILTER_RULE}` ];
     then
+      echo       iptables -t filter -A DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
       iptables -t filter -A DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
     else
       echo "error: Rule already exists in iptables."
@@ -53,6 +57,7 @@ case "${ACTION}" in
   "remove" )
     if [ `iptables-save |grep  ${NAT_RULE}` ];
     then
+      echo iptables -t nat -D DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
       iptables -t nat -D DOCKER ! -i docker0 -p tcp -m tcp --dport ${DESTP} -j DNAT --to-destination ${IP}:${SRCP}
     else 
       echo "error: Rule does not exist in iptables."
@@ -60,6 +65,7 @@ case "${ACTION}" in
     fi
     if [ `iptables-save |grep  ${FILTER_RULE}` ];
     then
+      echo iptables -t filter -D DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
       iptables -t filter -D DOCKER -d ${IP}/32 ! -i docker0 -o docker0 -p tcp -m tcp --dport ${SRCP} -j ACCEPT
     else
       echo "error: Rule does not exist in iptables."      
